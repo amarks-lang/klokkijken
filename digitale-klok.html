@@ -59,7 +59,9 @@
   #aclock .slice{opacity:.75;transition:opacity .3s}
   #aclock .slice.focus{opacity:1}
   #aclock .slice.focus path{stroke-width:4}
-  #aclock .ring circle{fill:#fff;stroke-width:3;transition:fill .2s}
+  #aclock .ring g{opacity:0;transition:opacity .25s}
+  #aclock .ring g.lit{opacity:1}
+  #aclock .ring circle{fill:#fff;stroke-width:2.5;transition:fill .2s}
   #aclock .ring g.lit text{fill:#fff}
   #aclock .hand{transition:transform .7s cubic-bezier(.34,1.4,.64,1)}
   #aclock .jumps path{fill:none;stroke-width:4;stroke-linecap:round}
@@ -336,10 +338,10 @@
     }
     const ring=el('g',{class:'ring'},ac);
     for(let p=1;p<=12;p++){
-      const [x,y]=polar(136,p*30), c=colorOf(p);
+      const [x,y]=polar(130,p*30), c=colorOf(p);
       const g=el('g',{},ring);
-      const circ=el('circle',{cx:x,cy:y,r:17,stroke:c},g);
-      const t=el('text',{x,y,'text-anchor':'middle','dominant-baseline':'central','font-size':15,'font-weight':900,fill:c,'font-family':'Nunito, sans-serif'},g);
+      const circ=el('circle',{cx:x,cy:y,r:13,stroke:c},g);
+      const t=el('text',{x,y,'text-anchor':'middle','dominant-baseline':'central','font-size':12,'font-weight':900,fill:c,'font-family':'Nunito, sans-serif'},g);
       t.textContent=pad(minOf(p));
       g._circ=circ; g._c=c; AC.ringEls[p]=g;
     }
