@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De digitale klok – minuten herkennen</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFF6E5; --ink:#2B2A33; --muted:#7A7368; --line:#E8DCC4;
+    --blue:#2563EB; --orange:#F59E0B; --orange-ink:#9A3412;
+    --green:#16A34A; --green-soft:#DCFCE7; --red:#DC2626; --red-soft:#FEE2E2;
+    --led:#FF4D4D; --led-dim:#5B5670; --led-off:#2D2A3B; --screen:#1C1A27;
+    --a-over:#3B82F6;      --a-over-s:#DBEAFE;
+    --a-voorhalf:#10B981;  --a-voorhalf-s:#D1FAE5;
+    --a-overhalf:#F59E0B;  --a-overhalf-s:#FEF3C7;
+    --a-voor:#EC4899;      --a-voor-s:#FCE7F3;
+    --a-mid:#6B7280;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:Nunito,system-ui,sans-serif;background:var(--bg);color:var(--ink);-webkit-user-select:none;user-select:none}
+  input{-webkit-user-select:text;user-select:text}
+  .app{max-width:1320px;margin:0 auto;padding:12px 22px;min-height:100vh;display:flex;flex-direction:column;gap:8px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  h1{margin:0;font-size:clamp(22px,2.8vw,32px);font-weight:900;letter-spacing:-.01em}
+  h1 span{color:var(--led)}
+  .right{display:flex;align-items:center;gap:14px}
+  .dots{display:flex;gap:7px;align-items:center}
+  .dot{width:16px;height:16px;border-radius:50%;background:var(--line);transition:background .2s}
+  .dot.ok{background:var(--green)} .dot.bad{background:var(--red)}
+  .dot.now{outline:3px solid var(--blue);outline-offset:2px}
+  .score{font-weight:900;font-size:clamp(17px,2vw,22px);background:#fff;border:3px solid var(--line);border-radius:999px;padding:3px 14px;white-space:nowrap}
+
+  .steps{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .step{font:inherit;font-weight:800;font-size:15px;color:var(--ink);border:3px solid var(--line);background:#fff;border-radius:14px;padding:5px 12px 5px 6px;cursor:pointer;display:flex;gap:8px;align-items:center}
+  .step .nr{background:var(--line);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;font-weight:900}
+  .step.on{border-color:var(--blue);background:#EFF6FF;color:#1E40AF}
+  .step.on .nr{background:var(--blue);color:#fff}
+
+  main{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:28px;align-items:center}
+  @media (max-width:860px){main{grid-template-columns:1fr;gap:12px}}
+  .left{display:flex;flex-direction:column;gap:14px;align-items:center}
+  #display{width:100%;max-width:560px;display:block}
+  #strip{width:100%;max-width:640px;display:block;transition:opacity .35s}
+  #strip.off{opacity:0}
+
+  .panel{display:flex;flex-direction:column;gap:13px}
+  .question{font-size:clamp(23px,3vw,36px);font-weight:900;line-height:1.15;margin:0}
+  .question small{display:block;font-size:.52em;font-weight:700;color:var(--muted);margin-top:4px}
+  .phrase{display:inline-block;background:#fff;border:4px solid var(--ink);border-radius:18px;padding:4px 18px;margin-top:6px;font-size:1.15em}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .opt{font:inherit;color:var(--ink);font-size:clamp(22px,3vw,36px);font-weight:900;line-height:1.1;background:#fff;
+       border:4px solid var(--line);border-radius:22px;padding:16px 10px;cursor:pointer;min-height:90px;
+       box-shadow:0 7px 0 var(--line);transition:transform .08s, box-shadow .08s, opacity .2s}
+  .opt svg{height:72px;width:auto;display:block;margin:0 auto}
+  .opt.digi{padding:12px 10px}
+  .opt:not(:disabled):hover{border-color:var(--blue)}
+  .opt:not(:disabled):active{transform:translateY(5px);box-shadow:0 2px 0 var(--line)}
+  .opt:disabled{cursor:default}
+  .opt.good{background:var(--green-soft);border-color:var(--green);box-shadow:0 7px 0 var(--green)}
+  .opt.bad{background:var(--red-soft);border-color:var(--red);box-shadow:0 7px 0 var(--red)}
+  .opt.dim{opacity:.4}
+  .opts.hidden,.openq.hidden{display:none}
+
+  .openq{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:clamp(24px,3vw,36px);font-weight:900}
+  .openq input{font:inherit;font-weight:900;color:var(--ink);flex:1;min-width:200px;max-width:440px;padding:10px 16px;border:4px solid var(--line);border-radius:18px;background:#fff;outline:none}
+  .openq input:focus{border-color:var(--blue)}
+  .openq input.good{border-color:var(--green);background:var(--green-soft)}
+  .openq input.bad{border-color:var(--red);background:var(--red-soft)}
+  .check{font:inherit;font-size:.7em;font-weight:900;color:#fff;background:var(--blue);border:0;border-radius:16px;padding:12px 22px;cursor:pointer;box-shadow:0 5px 0 #1E40AF}
+  .check:active{transform:translateY(3px);box-shadow:0 2px 0 #1E40AF}
+  .check:disabled{opacity:.4;cursor:default}
+
+  .count{min-height:1.3em;font-size:clamp(20px,2.4vw,28px);font-weight:900;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+  .count .n{color:#fff;border-radius:12px;padding:0 12px;animation:pop .25s ease-out}
+  .count .lbl{color:var(--muted);font-size:.75em}
+  @keyframes pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+  .feedback{min-height:2.7em;font-size:clamp(17px,1.95vw,22px);font-weight:700;line-height:1.38;margin:0}
+  .feedback p{margin:0 0 4px}
+  .feedback b{font-weight:900}
+  .feedback .yes{color:var(--green)} .feedback .no{color:var(--red)} .feedback .hint{color:var(--orange-ink)}
+  .tag{display:inline-block;color:#fff;border-radius:8px;padding:0 8px;font-weight:900}
+
+  .next{align-self:flex-start;font:inherit;font-size:clamp(20px,2.3vw,27px);font-weight:900;color:#fff;background:var(--blue);
+        border:0;border-radius:18px;padding:11px 26px;cursor:pointer;box-shadow:0 6px 0 #1E40AF;visibility:hidden}
+  .next.show{visibility:visible;animation:pop .25s ease-out}
+  .next:active{transform:translateY(4px);box-shadow:0 2px 0 #1E40AF}
+
+  footer{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding-top:2px}
+  .tog{font:inherit;font-weight:800;font-size:15px;background:#fff;color:var(--ink);border:3px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+  .tog[aria-pressed="true"]{border-color:var(--blue);background:#EFF6FF;color:#1E40AF}
+
+  /* strook */
+  #strip .num{transition:fill .2s}
+  #strip .bub{opacity:0;transition:opacity .2s}
+  #strip .lit .bub{opacity:1}
+  #strip .lit .num{fill:#fff}
+  #strip .area{transition:opacity .3s}
+  #strip.focusing .area{opacity:.35}
+  #strip.focusing .area.focus{opacity:1}
+  #strip .jumps path{fill:none;stroke-width:4;stroke-linecap:round}
+  .colon{animation:blink 1s steps(2,start) infinite}
+  @keyframes blink{to{visibility:hidden}}
+
+  .overlay{position:fixed;inset:0;background:rgba(43,42,51,.45);display:none;align-items:center;justify-content:center;padding:20px}
+  .overlay.show{display:flex}
+  .card{background:#fff;border-radius:28px;padding:30px 36px;text-align:center;max-width:460px;width:100%;animation:pop .3s ease-out}
+  .card h2{margin:0 0 6px;font-size:36px;font-weight:900}
+  .stars{font-size:56px;letter-spacing:6px;margin:6px 0}
+  .stars .off{filter:grayscale(1);opacity:.3}
+  .card p{font-size:22px;font-weight:800;margin:6px 0 20px}
+  .card .next{visibility:visible;align-self:auto}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>De <span>digitale</span> klok 🐸</h1>
+    <div class="right">
+      <div class="dots" id="dots" aria-label="Voortgang"></div>
+      <div class="score" id="score">0 goed</div>
+    </div>
+  </header>
+  <nav class="steps" id="steps" aria-label="Stappen"></nav>
+
+  <main>
+    <div class="left">
+      <svg id="display" viewBox="0 0 380 186" aria-label="Digitale klok"></svg>
+      <svg id="strip" viewBox="0 0 640 178" aria-label="Minutenstrook"></svg>
+    </div>
+
+    <section class="panel">
+      <div class="question" id="question"></div>
+      <div class="opts" id="opts"></div>
+      <form class="openq hidden" id="openq" autocomplete="off">
+        <input id="inp" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="bijv. 10 over">
+        <button class="check" id="check" type="submit">Controleer</button>
+      </form>
+      <div class="count" id="count" aria-live="polite"></div>
+      <div class="feedback" id="feedback" aria-live="polite"></div>
+      <button class="next" id="next">Volgende ➜</button>
+    </section>
+  </main>
+
+  <footer>
+    <button class="tog" id="tStrip">📏 Minutenstrook</button>
+    <button class="tog" id="tUren">🕐 Uren laten zien</button>
+    <button class="tog" id="tSound">🔊 Geluid</button>
+    <button class="tog" id="tRestart" aria-pressed="false">↺ Opnieuw</button>
+  </footer>
+</div>
+
+<div class="overlay" id="end">
+  <div class="card">
+    <h2>Klaar!</h2>
+    <div class="stars" id="stars"></div>
+    <p id="endText"></p>
+    <button class="next" id="again">Nog een ronde ➜</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  const ROUND = 10;
+  const NS = 'http://www.w3.org/2000/svg';
+  const $ = id => document.getElementById(id);
+  const el = (tag, attrs={}, parent) => { const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; };
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+  const shuffle = a => { for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
+  const pick = a => a[Math.floor(Math.random()*a.length)];
+  const wrap = x => ((x-1)%12+12)%12+1;
+  const pad = n => String(n).padStart(2,'0');
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+  // ---------- stappen ----------
+  const STEPS = [
+    {nr:1, naam:'Minuten → zeggen',  soort:'lees'},
+    {nr:2, naam:'Zeggen → minuten',  soort:'omgekeerd'},
+    {nr:3, naam:'Minuten → zeggen',  soort:'typ'},
+  ];
+
+  // ---------- vakken (zelfde als de wijzerklok-app) ----------
+  const AREAS = {
+    over:     {naam:'over',      from:0,  to:15, anker:0,  dir:+1, kleur:'--a-over',     zacht:'--a-over-s'},
+    voorhalf: {naam:'voor half', from:15, to:30, anker:30, dir:-1, kleur:'--a-voorhalf', zacht:'--a-voorhalf-s'},
+    overhalf: {naam:'over half', from:30, to:45, anker:30, dir:+1, kleur:'--a-overhalf', zacht:'--a-overhalf-s'},
+    voor:     {naam:'voor',      from:45, to:60, anker:60, dir:-1, kleur:'--a-voor',     zacht:'--a-voor-s'}
+  };
+  const POS = {
+    1:{t:'5 over',       area:'over',     n:1},
+    2:{t:'10 over',      area:'over',     n:2},
+    3:{t:'kwart over',   area:'over',     n:3},
+    4:{t:'10 voor half', area:'voorhalf', n:2},
+    5:{t:'5 voor half',  area:'voorhalf', n:1},
+    6:{t:'half',         area:null,       n:0, anker:30},
+    7:{t:'5 over half',  area:'overhalf', n:1},
+    8:{t:'10 over half', area:'overhalf', n:2},
+    9:{t:'kwart voor',   area:'voor',     n:3},
+    10:{t:'10 voor',     area:'voor',     n:2},
+    11:{t:'5 voor',      area:'voor',     n:1},
+    12:{t:'heel uur',    area:null,       n:0, anker:0}
+  };
+  const GROUP = { 1:[1,5,7,11], 5:[1,5,7,11], 7:[1,5,7,11], 11:[1,5,7,11],
+                  2:[2,4,8,10], 4:[2,4,8,10], 8:[2,4,8,10], 10:[2,4,8,10],
+                  3:[3,9,6,12], 9:[3,9,6,12], 6:[6,12,3,9], 12:[6,12,3,9] };
+  const STAPLABEL = ['5','10','kwart'];
+  const minOf = p => (p%12)*5;
+  const colorOf = p => POS[p].area ? css(AREAS[POS[p].area].kleur) : css('--a-mid');
+
+  // ---------- instellingen ----------
+  const store = {
+    get(k,d){ try{ const v=localStorage.getItem('digiklok_'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
+    set(k,v){ try{ localStorage.setItem('digiklok_'+k, JSON.stringify(v)); }catch(e){} }
+  };
+  const S = { strip:store.get('strip',true), uren:store.get('uren',false), sound:store.get('sound',true), step:store.get('step',1) };
+  if(!STEPS.find(s=>s.nr===S.step)) S.step=1;
+
+  // ---------- 7-segment cijfers ----------
+  const SEGS = {'0':'abcdef','1':'bc','2':'abged','3':'abgcd','4':'fgbc','5':'afgcd','6':'afgedc','7':'abc','8':'abcdefg','9':'abcdfg','-':'g',' ':''};
+  const T=12;
+  const hSeg=(x,y,L)=>`${x},${y+T/2} ${x+T/2},${y} ${x+L-T/2},${y} ${x+L},${y+T/2} ${x+L-T/2},${y+T} ${x+T/2},${y+T}`;
+  const vSeg=(x,y,L)=>`${x+T/2},${y} ${x+T},${y+T/2} ${x+T},${y+L-T/2} ${x+T/2},${y+L} ${x},${y+L-T/2} ${x},${y+T/2}`;
+  const SEGPTS = { a:hSeg(7,0,46), g:hSeg(7,49,46), d:hSeg(7,98,46), f:vSeg(0,7,46), b:vSeg(48,7,46), e:vSeg(0,56,46), c:vSeg(48,56,46) };
+  function digit(ch, x, y, on, off){
+    const lit = SEGS[ch]||'';
+    let s=`<g transform="translate(${x},${y}) skewX(-6)">`;
+    for(const k of 'abcdefg') s+=`<polygon points="${SEGPTS[k]}" fill="${lit.includes(k)?on:off}"/>`;
+    return s+'</g>';
+  }
+  function colon(x,y,color,blink){ return `<g class="${blink?'colon':''}"><circle cx="${x}" cy="${y+36}" r="7" fill="${color}"/><circle cx="${x-4}" cy="${y+76}" r="7" fill="${color}"/></g>`; }
+
+  // groot display: uren (dim) : minuten (fel)
+  function renderDisplay(hourStr, minStr, minLit){
+    const on=css('--led'), dim=css('--led-dim'), off=css('--led-off');
+    const hourOn = S.uren && hourStr!=='--' ? dim : off;
+    let s=`<rect x="0" y="0" width="380" height="148" rx="24" fill="${css('--screen')}"/>`;
+    s+=`<rect x="200" y="9" width="166" height="130" rx="16" fill="none" stroke="${css('--orange')}" stroke-width="3.5" stroke-dasharray="${minLit?'0':'8 6'}"/>`;
+    const hs = S.uren ? hourStr : '--';
+    s+=digit(hs[0],32,19,S.uren?hourOn:dim,off)+digit(hs[1],104,19,S.uren?hourOn:dim,off);
+    s+=colon(184,19,minLit?on:dim,true);
+    const mOn = minLit ? on : off;
+    s+=digit(minStr[0],216,19,minStr[0]==='-'?dim:mOn,off)+digit(minStr[1],288,19,minStr[1]==='-'?dim:mOn,off);
+    s+=`<text x="98" y="176" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="800" font-size="17" fill="${css('--muted')}">uren</text>`;
+    s+=`<text x="283" y="176" text-anchor="middle" font-family="Nunito, sans-serif" font-weight="900" font-size="19" fill="${css('--orange-ink')}">minuten</text>`;
+    $('display').innerHTML=s;
+  }
+  // klein display voor antwoordknoppen: ":20"
+  function miniDigital(m){
+    const on=css('--led'), off=css('--led-off'), mm=pad(m);
+    return `<svg viewBox="0 0 190 140" aria-label=":${mm}"><rect x="0" y="0" width="190" height="140" rx="18" fill="${css('--screen')}"/>`+
+      colon(30,14,on,false)+digit(mm[0],50,15,on,off)+digit(mm[1],118,15,on,off)+`</svg>`;
+  }
+
+  // ---------- minutenstrook ----------
+  const X = m => 30 + m*(580/60);
+  const strip=$('strip');
+  const areaEls={}, tickEls={};
+  (function buildStrip(){
+    for(const key in AREAS){
+      const A=AREAS[key];
+      const g=el('g',{class:'area'},strip);
+      el('rect',{x:X(A.from),y:76,width:X(A.to)-X(A.from),height:40,fill:css(A.zacht),stroke:css(A.kleur),'stroke-width':3},g);
+      const t=el('text',{x:(X(A.from)+X(A.to))/2,y:102,'text-anchor':'middle','font-family':'Nunito, sans-serif','font-weight':900,'font-size':17,fill:css(A.kleur)},g);
+      t.textContent=A.naam;
+      areaEls[key]=g;
+    }
+    for(let m=0;m<=60;m++){
+      const big=m%15===0, five=m%5===0;
+      el('line',{x1:X(m),y1:116,x2:X(m),y2:116+(big?14:five?10:4),stroke:'#2B2A33','stroke-width':big?3:five?2:1},strip);
+    }
+    for(let m=0;m<=60;m+=5){
+      const g=el('g',{},strip);
+      el('circle',{class:'bub',cx:X(m),cy:144,r:14,fill:css('--orange')},g);
+      const t=el('text',{class:'num',x:X(m),y:149,'text-anchor':'middle','font-family':'Nunito, sans-serif','font-weight':900,'font-size':15,fill:'#2B2A33'},g);
+      t.textContent=m;
+      tickEls[m]=g;
+    }
+    [[0,'heel'],[30,'half'],[60,'heel']].forEach(([m,w])=>{
+      const t=el('text',{x:X(m),y:173,'text-anchor':'middle','font-family':'Nunito, sans-serif','font-weight':800,'font-size':13,fill:css('--muted')},strip);
+      t.textContent=w;
+    });
+  })();
+  const jumps=el('g',{class:'jumps'},strip);
+  const pin=el('polygon',{points:'0,0 0,0 0,0',fill:'#2B2A33',opacity:0},strip);
+  const frog=el('text',{x:0,y:0,'font-size':26,'text-anchor':'middle','dominant-baseline':'central',opacity:0},strip);
+  frog.textContent='🐸';
+
+  function setPin(m, show){
+    const x=X(m);
+    pin.setAttribute('points',`${x-10},56 ${x+10},56 ${x},72`);
+    pin.setAttribute('opacity', show?1:0);
+  }
+  function clearStrip(){
+    jumps.innerHTML='';
+    frog.setAttribute('opacity',0);
+    for(const m in tickEls){ tickEls[m].classList.remove('lit'); tickEls[m].querySelector('.bub').setAttribute('fill',css('--orange')); }
+    strip.classList.remove('focusing');
+    for(const k in areaEls) areaEls[k].classList.remove('focus');
+  }
+  function lightTick(m,color){ const g=tickEls[m]; if(!g) return; g.classList.add('lit'); g.querySelector('.bub').setAttribute('fill',color); }
+
+  // ---------- geluid ----------
+  let actx=null;
+  function tone(f,d=.12,type='sine',vol=.12,delay=0){
+    if(!S.sound) return;
+    try{
+      actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+      const t0=actx.currentTime+delay, o=actx.createOscillator(), g=actx.createGain();
+      o.type=type; o.frequency.value=f;
+      g.gain.setValueAtTime(vol,t0); g.gain.exponentialRampToValueAtTime(.001,t0+d);
+      o.connect(g); g.connect(actx.destination); o.start(t0); o.stop(t0+d+.02);
+    }catch(e){}
+  }
+  const chime = () => { tone(660,.15,'triangle'); tone(880,.15,'triangle',.12,.1); tone(1320,.25,'triangle',.1,.2); };
+  const buzz  = () => { tone(220,.25,'square',.06); };
+
+  // ---------- kikker-animatie op de strook ----------
+  function animate(dur, fn){
+    return new Promise(res=>{
+      const s=performance.now();
+      function f(now){ const t=Math.min(1,(now-s)/dur); fn(t); if(t<1) requestAnimationFrame(f); else res(); }
+      requestAnimationFrame(f);
+    });
+  }
+  async function hop(p, ms){
+    clearStrip();
+    strip.classList.remove('off');   // tijdens uitleg altijd zichtbaar
+    const info=POS[p], count=$('count'); count.innerHTML='';
+    const anker = info.area ? AREAS[info.area].anker : info.anker;
+    const dir   = info.area ? AREAS[info.area].dir : 1;
+    const color = colorOf(p);
+    if(info.area){ strip.classList.add('focusing'); areaEls[info.area].classList.add('focus'); }
+    const Y=66;
+    frog.setAttribute('x',X(anker)); frog.setAttribute('y',Y); frog.setAttribute('opacity',1);
+    lightTick(anker, css('--a-mid'));
+    const lbl=document.createElement('span'); lbl.className='lbl';
+    lbl.textContent = info.n===0 ? `precies op de ${anker}` : `vanaf de ${anker}:`;
+    count.appendChild(lbl);
+    await sleep(ms*.6);
+    for(let i=1;i<=info.n;i++){
+      const m0=anker+dir*5*(i-1), m1=anker+dir*5*i;
+      const x0=X(m0), x2=X(m1), cx=(x0+x2)/2, cy=6;
+      const path=el('path',{d:`M${x0},${Y+8} Q${cx},${cy} ${x2},${Y+8}`,stroke:color},jumps);
+      const L=path.getTotalLength();
+      path.style.strokeDasharray=L; path.style.strokeDashoffset=L;
+      await animate(ms,t=>{
+        const e = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2, u=1-e;
+        frog.setAttribute('x',u*u*x0+2*u*e*cx+e*e*x2);
+        frog.setAttribute('y',u*u*(Y)+2*u*e*(cy-4)+e*e*(Y));
+        path.style.strokeDashoffset=L*(1-e);
+      });
+      lightTick(m1,color);
+      const s=document.createElement('span'); s.className='n'; s.style.background=color; s.textContent=STAPLABEL[i-1]; count.appendChild(s);
+      tone(dir>0 ? 440*Math.pow(2,(i-1)/6) : 660*Math.pow(2,-(i-1)/6),.12,'triangle',.11);
+      await sleep(ms*.3);
+    }
+  }
+
+  // ---------- uitleg ----------
+  function explain(p){
+    const m=minOf(p), mm=pad(m);
+    if(p===12) return `<b>:00</b> is precies het hele uur. Dat is <b>heel uur</b>.`;
+    if(p===6)  return `<b>:30</b> is precies de helft van het uur. Dat is <b>half</b>.`;
+    const A=AREAS[POS[p].area];
+    const steps=[]; for(let i=1;i<=POS[p].n;i++) steps.push(A.anker+A.dir*5*i);
+    return `<b>:${mm}</b> zit in het vak <span class="tag" style="background:${css(A.kleur)}">${A.naam}</span> (tussen ${A.from} en ${A.to}). `+
+           `Tel vanaf de <b>${A.anker}</b> ${A.dir>0?'<b>vooruit</b>':'<b>terug</b>'}: ${steps.join(', ')}. Dat is <b>${POS[p].t}</b>.`;
+  }
+
+  // ---------- typen begrijpen ----------
+  const WORDNUM={een:1,'één':1,twee:2,drie:3,vier:4,vijf:5,zes:6,zeven:7,acht:8,negen:9,tien:10,elf:11,twaalf:12};
+  function norm(s){
+    s=s.toLowerCase().replace(/[.,!?;:'"]/g,' ').replace(/\bhet is\b/g,' ').replace(/\bminuten\b|\bminuut\b/g,' ').replace(/\s+/g,' ').trim();
+    return s.split(' ').map(w=>WORDNUM[w]!==undefined?String(WORDNUM[w]):w).join(' ');
+  }
+  function parseMin(raw){
+    const s=norm(raw);
+    if(!s) return {err:'Typ eerst je antwoord.'};
+    if(/^(heel( uur)?|hele uur|uur|precies)$/.test(s)) return {p:12};
+    if(s==='half') return {p:6};
+    let m=s.match(/^kwart (over|voor)$/); if(m) return {p:m[1]==='over'?3:9};
+    m=s.match(/^(5|10) (over|voor)( half)?$/);
+    if(m){ const k=+m[1]/5, half=!!m[3];
+      if(!half) return {p: m[2]==='over' ? k : 12-k};
+      return {p: m[2]==='voor' ? 6-k : 6+k}; }
+    if(/^\d+$/.test(s)) return {err:'Schrijf het zoals je het <b>zegt</b>, met <b>over</b>, <b>voor half</b>, <b>over half</b> of <b>voor</b>.'};
+    m=s.match(/^(\d+) (over|voor)/);
+    if(m){ const n=+m[1];
+      if(n===15) return {err:'Bij 15 minuten zeggen we <b>kwart</b>.'};
+      if(n===30) return {err:'Bij 30 minuten zeggen we <b>half</b>.'};
+      if(n>10)  return {err:'Zo zeggen we het niet. Kijk in welk vak de minuten zitten: <b>over</b>, <b>voor half</b>, <b>over half</b> of <b>voor</b>.'};
+    }
+    return {err:'Dat snap ik niet. Schrijf het zo: <b>10 over</b>, <b>5 voor half</b>, <b>kwart voor</b> of <b>half</b>.'};
+  }
+
+  // ---------- opties ----------
+  function phraseOptions(p){
+    const same = shuffle(GROUP[p].filter(x=>x!==p));
+    const near = shuffle([wrap(p-1), wrap(p+1)].filter(x=>x!==p));
+    const picks=[];
+    for(const x of same){ if(picks.length<2) picks.push(x); }
+    for(const x of near.concat(same)){ if(picks.length<3 && !picks.includes(x)) picks.push(x); }
+    return shuffle([p,...picks]);
+  }
+
+  // ---------- staat ----------
+  let step, items=[], q=0, points=0, res=[], answered=false, it=null;
+
+  function newRound(){
+    step=STEPS.find(s=>s.nr===S.step);
+    const ps=shuffle([1,2,3,4,5,6,7,8,9,10,11,12]).slice(0,ROUND);
+    items=ps.map(p=>({p, m:minOf(p), h:Math.floor(Math.random()*24)}));
+    q=0; points=0; res=[];
+    $('end').classList.remove('show');
+    renderSteps(); showItem();
+  }
+  function renderSteps(){
+    const nav=$('steps'); nav.innerHTML='';
+    STEPS.forEach(s=>{
+      const b=document.createElement('button');
+      b.className='step'+(s.nr===S.step?' on':'');
+      b.innerHTML=`<span class="nr">${s.nr}</span>${s.naam}${s.soort==='typ'?' ✏️':''}`;
+      b.addEventListener('click',()=>{ S.step=s.nr; store.set('step',s.nr); newRound(); });
+      nav.appendChild(b);
+    });
+  }
+  function renderDots(){
+    const d=$('dots'); d.innerHTML='';
+    for(let i=0;i<ROUND;i++){
+      const s=document.createElement('div');
+      s.className='dot'+(res[i]===true?' ok':res[i]===false?' bad':'')+(i===q&&res[i]===undefined?' now':'');
+      d.appendChild(s);
+    }
+    $('score').textContent=`${points} / ${ROUND} goed`;
+  }
+  function stripVisibility(){ strip.classList.toggle('off', !S.strip && !answered); }
+
+  function showItem(){
+    answered=false; it=items[q];
+    clearStrip(); $('count').innerHTML=''; $('feedback').innerHTML='';
+    $('next').classList.remove('show');
+    const reverse = step.soort==='omgekeerd';
+    renderDisplay(pad(it.h), reverse?'--':pad(it.m), !reverse);
+    setPin(it.m, !reverse);
+    stripVisibility();
+
+    const opts=$('opts'), form=$('openq'), inp=$('inp');
+    opts.innerHTML='';
+    if(step.soort==='lees'){
+      $('question').innerHTML='Wat zeg je bij deze minuten?<small>Zoek de minuten op de strook. In welk vak zitten ze?</small>';
+      opts.classList.remove('hidden'); form.classList.add('hidden');
+      phraseOptions(it.p).forEach(x=>{
+        const b=document.createElement('button'); b.className='opt'; b.dataset.k=x; b.textContent=POS[x].t;
+        b.addEventListener('click',()=>answer(x,b)); opts.appendChild(b);
+      });
+    }else if(step.soort==='omgekeerd'){
+      $('question').innerHTML=`Welke minuten horen bij<br><span class="phrase">${POS[it.p].t}</span><small>Kies de goede digitale klok.</small>`;
+      opts.classList.remove('hidden'); form.classList.add('hidden');
+      shuffle(GROUP[it.p].slice()).forEach(x=>{
+        const b=document.createElement('button'); b.className='opt digi'; b.dataset.k=x; b.innerHTML=miniDigital(minOf(x));
+        b.addEventListener('click',()=>answer(x,b)); opts.appendChild(b);
+      });
+    }else{
+      $('question').innerHTML='Wat zeg je bij deze minuten? Typ het.<small>Bijvoorbeeld: 10 over, 5 voor half, kwart voor of half.</small>';
+      opts.classList.add('hidden'); form.classList.remove('hidden');
+      inp.value=''; inp.disabled=false; inp.className=''; $('check').disabled=false;
+      setTimeout(()=>{ try{ inp.focus(); }catch(e){} },50);
+    }
+    renderDots();
+  }
+
+  $('openq').addEventListener('submit',e=>{
+    e.preventDefault();
+    if(answered) return;
+    const r=parseMin($('inp').value);
+    if(r.err){ $('feedback').innerHTML=`<p class="hint">🤔 ${r.err}</p>`; tone(330,.1,'sine',.06); return; }
+    answer(r.p,null);
+  });
+
+  const praise=['Goed zo!','Top!','Precies!','Super!','Knap!','Helemaal goed!'];
+  async function answer(key, btn){
+    if(answered) return;
+    answered=true;
+    const ok = +key===it.p;
+    res[q]=ok; if(ok) points++;
+    if(step.soort==='typ'){
+      $('inp').disabled=true; $('check').disabled=true; $('inp').classList.add(ok?'good':'bad');
+    }else{
+      document.querySelectorAll('.opt').forEach(b=>{
+        b.disabled=true;
+        if(+b.dataset.k===it.p) b.classList.add('good');
+        else if(b===btn) b.classList.add('bad');
+        else b.classList.add('dim');
+      });
+    }
+    renderDots();
+    ok ? chime() : buzz();
+    if(step.soort==='omgekeerd'){ renderDisplay(pad(it.h), pad(it.m), true); setPin(it.m,true); }
+    stripVisibility();
+    const head = ok ? `<b class="yes">${pick(praise)}</b> ` : `<b class="no">Nog niet.</b> `;
+    let hint='';
+    if(!ok && POS[key] && POS[key].n===POS[it.p].n && POS[key].area!==POS[it.p].area && POS[key].area && POS[it.p].area)
+      hint = step.soort==='omgekeerd' ? 'Het getal klopt, maar kijk goed in welk <b>vak</b> het hoort!' : 'Het getal klopt, maar kijk goed in welk <b>vak</b> de minuten zitten!';
+    $('feedback').innerHTML = `<p>${head}${hint || (ok?'':'Tel maar mee met de kikker…')}</p>`;
+    await hop(it.p, ok?380:650);
+    const showCorrect = (!ok && step.soort==='typ') ? `<p>Het goede antwoord is: <b>${POS[it.p].t}</b>.</p>` : '';
+    $('feedback').innerHTML = `${hint?`<p class="hint">${hint}</p>`:''}<p>${head}${explain(it.p)}</p>${showCorrect}`;
+    $('next').textContent = q===ROUND-1 ? 'Klaar ➜' : 'Volgende ➜';
+    $('next').classList.add('show');
+  }
+
+  function next(){
+    if(!answered || !$('next').classList.contains('show')) return;
+    q++;
+    if(q>=ROUND) return finish();
+    showItem();
+  }
+  function finish(){
+    renderDots();
+    const n = points>=9?3:points>=7?2:points>=5?1:0;
+    $('stars').innerHTML=[0,1,2].map(i=>`<span class="${i<n?'':'off'}">⭐</span>`).join('');
+    $('endText').textContent=`Je had er ${points} van de ${ROUND} goed!`;
+    $('end').classList.add('show');
+    if(n>=2) chime();
+  }
+
+  // ---------- knoppen ----------
+  function applyToggles(){
+    $('tStrip').setAttribute('aria-pressed',S.strip);
+    $('tUren').setAttribute('aria-pressed',S.uren);
+    $('tSound').setAttribute('aria-pressed',S.sound);
+    $('tSound').textContent = S.sound ? '🔊 Geluid' : '🔇 Geluid uit';
+    stripVisibility();
+    if(it){
+      const reverse = step.soort==='omgekeerd' && !answered;
+      renderDisplay(pad(it.h), reverse?'--':pad(it.m), !reverse);
+    }
+  }
+  const tog=(id,key)=>$(id).addEventListener('click',()=>{ S[key]=!S[key]; store.set(key,S[key]); applyToggles(); });
+  tog('tStrip','strip'); tog('tUren','uren'); tog('tSound','sound');
+  $('tRestart').addEventListener('click',newRound);
+  $('next').addEventListener('click',next);
+  $('again').addEventListener('click',newRound);
+  document.addEventListener('keydown',e=>{
+    if(e.target && e.target.tagName==='INPUT') return;
+    if(['1','2','3','4'].includes(e.key)){ const b=document.querySelectorAll('.opt')[+e.key-1]; if(b && !b.disabled) b.click(); }
+    if(e.key==='Enter' || e.key===' '){
+      if($('end').classList.contains('show')){ e.preventDefault(); newRound(); }
+      else if($('next').classList.contains('show')){ e.preventDefault(); next(); }
+    }
+  });
+
+  applyToggles();
+  newRound();
+})();
+</script>
+</body>
+</html>

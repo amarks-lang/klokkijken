@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klokkijken</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:Nunito,system-ui,sans-serif;background:#FFF6E5;color:#2B2A33;
+       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:24px}
+  h1{margin:0;font-size:clamp(32px,5vw,56px);font-weight:900}
+  .keuze{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+  a{display:flex;flex-direction:column;align-items:center;gap:10px;text-decoration:none;color:inherit;background:#fff;
+    border:4px solid #E8DCC4;border-radius:28px;padding:28px 36px;min-width:280px;box-shadow:0 8px 0 #E8DCC4;transition:transform .08s}
+  a:hover{border-color:#2563EB}
+  a:active{transform:translateY(5px);box-shadow:0 3px 0 #E8DCC4}
+  .icon{font-size:80px;line-height:1}
+  .titel{font-size:28px;font-weight:900}
+  .sub{font-size:17px;font-weight:700;color:#7A7368;text-align:center}
+  .digi{font-family:ui-monospace,monospace;font-weight:900;font-size:56px;color:#FF4D4D;background:#1C1A27;border-radius:16px;padding:6px 16px;line-height:1.1}
+</style>
+</head>
+<body>
+  <h1>Klokkijken 🐸</h1>
+  <div class="keuze">
+    <a href="wijzerklok.html">
+      <span class="icon">🕒</span>
+      <span class="titel">De wijzerklok</span>
+      <span class="sub">Lange en korte wijzer,<br>in 5 stappen</span>
+    </a>
+    <a href="digitale-klok.html">
+      <span class="digi">:20</span>
+      <span class="titel">De digitale klok</span>
+      <span class="sub">Minuten herkennen,<br>in 3 stappen</span>
+    </a>
+  </div>
+</body>
+</html>
