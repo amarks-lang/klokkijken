@@ -44,6 +44,25 @@
   #display{width:100%;max-width:560px;display:block}
   #strip{width:100%;max-width:640px;display:block;transition:opacity .35s}
   #strip.off{opacity:0}
+  .left.klokmode{flex-direction:row;align-items:center;justify-content:center;gap:10px}
+  .left.klokmode #display{flex:.85 1 0;min-width:0}
+  main.klokmode{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+  @media (max-width:860px){main.klokmode{grid-template-columns:1fr}}
+  #aclock{width:100%;max-width:480px;display:block;transition:opacity .35s;flex:1.2 1 0;min-width:0;max-height:66vh}
+  #aclock.off{opacity:0}
+  .hide{display:none!important}
+  .seg{display:inline-flex;border:3px solid var(--line);border-radius:999px;overflow:hidden;background:#fff}
+  .seg button{font:inherit;font-weight:800;font-size:15px;border:0;background:#fff;color:var(--ink);padding:6px 14px;cursor:pointer}
+  .seg button+button{border-left:3px solid var(--line)}
+  .seg button.on{background:#EFF6FF;color:#1E40AF}
+  /* wijzerklok */
+  #aclock .slice{opacity:.75;transition:opacity .3s}
+  #aclock .slice.focus{opacity:1}
+  #aclock .slice.focus path{stroke-width:4}
+  #aclock .ring circle{fill:#fff;stroke-width:3;transition:fill .2s}
+  #aclock .ring g.lit text{fill:#fff}
+  #aclock .hand{transition:transform .7s cubic-bezier(.34,1.4,.64,1)}
+  #aclock .jumps path{fill:none;stroke-width:4;stroke-linecap:round}
 
   .panel{display:flex;flex-direction:column;gap:13px}
   .question{font-size:clamp(23px,3vw,36px);font-weight:900;line-height:1.15;margin:0}
@@ -124,10 +143,11 @@
   </header>
   <nav class="steps" id="steps" aria-label="Stappen"></nav>
 
-  <main>
-    <div class="left">
+  <main id="main">
+    <div class="left" id="left">
       <svg id="display" viewBox="0 0 380 186" aria-label="Digitale klok"></svg>
       <svg id="strip" viewBox="0 0 640 178" aria-label="Minutenstrook"></svg>
+      <svg id="aclock" viewBox="-192 -196 384 384" aria-label="Wijzerklok"></svg>
     </div>
 
     <section class="panel">
@@ -144,7 +164,8 @@
   </main>
 
   <footer>
-    <button class="tog" id="tStrip">📏 Minutenstrook</button>
+    <div class="seg" role="group" aria-label="Soort hulp"><button id="hStrook">📏 Strook</button><button id="hKlok">🕒 Wijzerklok</button></div>
+    <button class="tog" id="tStrip">👀 Hulp tonen</button>
     <button class="tog" id="tUren">🕐 Uren laten zien</button>
     <button class="tog" id="tSound">🔊 Geluid</button>
     <button class="tog" id="tRestart" aria-pressed="false">↺ Opnieuw</button>
@@ -213,7 +234,7 @@
     get(k,d){ try{ const v=localStorage.getItem('digiklok_'+k); return v===null?d:JSON.parse(v); }catch(e){ return d; } },
     set(k,v){ try{ localStorage.setItem('digiklok_'+k, JSON.stringify(v)); }catch(e){} }
   };
-  const S = { strip:store.get('strip',true), uren:store.get('uren',false), sound:store.get('sound',true), step:store.get('step',1) };
+  const S = { hulptype:store.get('hulptype','strook'), strip:store.get('strip',true), uren:store.get('uren',false), sound:store.get('sound',true), step:store.get('step',1) };
   if(!STEPS.find(s=>s.nr===S.step)) S.step=1;
 
   // ---------- 7-segment cijfers ----------
@@ -286,6 +307,68 @@
   const frog=el('text',{x:0,y:0,'font-size':26,'text-anchor':'middle','dominant-baseline':'central',opacity:0},strip);
   frog.textContent='🐸';
 
+  // ---------- wijzerklok (zelfde als de wijzerklok-app) ----------
+  const ac=$('aclock');
+  const polar = (r,deg) => { const a=(deg-90)*Math.PI/180; return [r*Math.cos(a), r*Math.sin(a)]; };
+  const AC={sliceEls:{}, ringEls:{}, deg:0};
+  (function buildAnalog(){
+    el('circle',{r:114,fill:'#fff',stroke:'#2B2A33','stroke-width':7},ac);
+    const areasG=el('g',{},ac);
+    for(const key in AREAS){
+      const A=AREAS[key], a0=A.from*6, a1=A.to*6;
+      const [x0,y0]=polar(110,a0), [x1,y1]=polar(110,a1);
+      const g=el('g',{class:'slice'},areasG);
+      el('path',{d:`M0,0 L${x0},${y0} A110,110 0 0 1 ${x1},${y1} Z`,fill:css(A.zacht),stroke:css(A.kleur),'stroke-width':0},g);
+      AC.sliceEls[key]=g;
+      const [lx,ly]=polar(46,(a0+a1)/2);
+      const t=el('text',{x:lx,y:ly,'text-anchor':'middle','font-size':14,'font-weight':900,fill:css(A.kleur),'font-family':'Nunito, sans-serif'},areasG);
+      const parts=A.naam.split(' ');
+      parts.forEach((w,i)=>{ const ts=el('tspan',{x:lx,dy:i===0?(parts.length>1?-3:5):15},t); ts.textContent=w; });
+    }
+    [[0,6],[3,9]].forEach(([a,b])=>{
+      const [x1,y1]=polar(110,a*30), [x2,y2]=polar(110,b*30);
+      el('line',{x1,y1,x2,y2,stroke:'#2B2A33','stroke-width':2.5,'stroke-dasharray':'6 6',opacity:.55},ac);
+    });
+    for(let m=0;m<60;m++){
+      const big=m%5===0, deg=m*6;
+      const [x1,y1]=polar(110,deg), [x2,y2]=polar(big?96:103,deg);
+      el('line',{x1,y1,x2,y2,stroke:'#2B2A33','stroke-width':big?4:2,'stroke-linecap':'round'},ac);
+    }
+    const ring=el('g',{class:'ring'},ac);
+    for(let p=1;p<=12;p++){
+      const [x,y]=polar(136,p*30), c=colorOf(p);
+      const g=el('g',{},ring);
+      const circ=el('circle',{cx:x,cy:y,r:17,stroke:c},g);
+      const t=el('text',{x,y,'text-anchor':'middle','dominant-baseline':'central','font-size':15,'font-weight':900,fill:c,'font-family':'Nunito, sans-serif'},g);
+      t.textContent=pad(minOf(p));
+      g._circ=circ; g._c=c; AC.ringEls[p]=g;
+    }
+    AC.jumps=el('g',{class:'jumps'},ac);
+    AC.hand=el('g',{class:'hand'},ac);
+    el('line',{x1:0,y1:16,x2:0,y2:-86,stroke:'#1E3A8A','stroke-width':7,'stroke-linecap':'round'},AC.hand);
+    el('polygon',{points:'0,-104 -10,-82 10,-82',fill:'#1E3A8A',stroke:'#1E3A8A','stroke-width':3,'stroke-linejoin':'round'},AC.hand);
+    const nums=el('g',{},ac);
+    for(let h=1;h<=12;h++){
+      const [x,y]=polar(78,h*30);
+      const t=el('text',{x,y,'text-anchor':'middle','dominant-baseline':'central','font-size':26,'font-weight':900,fill:'#2B2A33',stroke:'#fff','stroke-width':6,'paint-order':'stroke','stroke-linejoin':'round','font-family':'Nunito, sans-serif'},nums);
+      t.textContent=h;
+    }
+    el('circle',{r:8,fill:'#2B2A33'},ac);
+    AC.frog=el('text',{x:0,y:0,'font-size':28,'text-anchor':'middle','dominant-baseline':'central',opacity:0},ac);
+    AC.frog.textContent='🐸';
+  })();
+  function setHand(p, show){
+    let d=(((p%12)*30-AC.deg)%360+360)%360; if(d<1) d=360;
+    AC.deg+=d; AC.hand.style.transform=`rotate(${AC.deg}deg)`;
+    AC.hand.style.opacity = show?1:0;
+  }
+  function acLight(p){ const g=AC.ringEls[p===0?12:p]; if(!g) return; g.classList.add('lit'); g._circ.style.fill=g._c; }
+  function clearAnalog(){
+    AC.jumps.innerHTML=''; AC.frog.setAttribute('opacity',0);
+    for(const p in AC.ringEls){ AC.ringEls[p].classList.remove('lit'); AC.ringEls[p]._circ.style.fill=''; }
+    for(const k in AC.sliceEls) AC.sliceEls[k].classList.remove('focus');
+  }
+
   function setPin(m, show){
     const x=X(m);
     pin.setAttribute('points',`${x-10},56 ${x+10},56 ${x},72`);
@@ -323,7 +406,7 @@
       requestAnimationFrame(f);
     });
   }
-  async function hop(p, ms){
+  async function hopStrip(p, ms){
     clearStrip();
     strip.classList.remove('off');   // tijdens uitleg altijd zichtbaar
     const info=POS[p], count=$('count'); count.innerHTML='';
@@ -356,6 +439,42 @@
       await sleep(ms*.3);
     }
   }
+
+  async function hopClock(p, ms){
+    clearAnalog();
+    const info=POS[p], count=$('count'); count.innerHTML='';
+    const anker = (info.area ? AREAS[info.area].anker : info.anker)/5;   // in 'uur-posities'
+    const dir   = info.area ? AREAS[info.area].dir : 1;
+    const color = colorOf(p);
+    if(info.area) AC.sliceEls[info.area].classList.add('focus');
+    const R=158, CR=196;
+    let [fx,fy]=polar(R,anker*30);
+    AC.frog.setAttribute('x',fx); AC.frog.setAttribute('y',fy); AC.frog.setAttribute('opacity',1);
+    acLight(anker%12);
+    const lbl=document.createElement('span'); lbl.className='lbl';
+    const plek = anker===6 ? 'de half (:30)' : 'de 12 (:00)';
+    lbl.textContent = info.n===0 ? `precies op ${plek}` : `vanaf ${plek}:`;
+    count.appendChild(lbl);
+    await sleep(ms*.6);
+    for(let i=1;i<=info.n;i++){
+      const a0=(anker+dir*(i-1))*30, a2=(anker+dir*i)*30, am=(a0+a2)/2;
+      const [x0,y0]=polar(R,a0), [x2,y2]=polar(R,a2), [cx,cy]=polar(CR,am);
+      const path=el('path',{d:`M${x0},${y0} Q${cx},${cy} ${x2},${y2}`,stroke:color},AC.jumps);
+      const L=path.getTotalLength();
+      path.style.strokeDasharray=L; path.style.strokeDashoffset=L;
+      await animate(ms,t=>{
+        const e = t<.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2, u=1-e;
+        AC.frog.setAttribute('x',u*u*x0+2*u*e*cx+e*e*x2);
+        AC.frog.setAttribute('y',u*u*y0+2*u*e*cy+e*e*y2);
+        path.style.strokeDashoffset=L*(1-e);
+      });
+      acLight((((anker+dir*i)%12)+12)%12);
+      const s=document.createElement('span'); s.className='n'; s.style.background=color; s.textContent=STAPLABEL[i-1]; count.appendChild(s);
+      tone(dir>0 ? 440*Math.pow(2,(i-1)/6) : 660*Math.pow(2,-(i-1)/6),.12,'triangle',.11);
+      await sleep(ms*.3);
+    }
+  }
+  const hop = (p,ms) => S.hulptype==='klok' ? hopClock(p,ms) : hopStrip(p,ms);
 
   // ---------- uitleg ----------
   function explain(p){
@@ -434,21 +553,30 @@
     }
     $('score').textContent=`${points} / ${ROUND} goed`;
   }
-  function stripVisibility(){ strip.classList.toggle('off', !S.strip && !answered); }
+  function stripVisibility(){
+    const klok=S.hulptype==='klok';
+    strip.classList.toggle('hide', klok); ac.classList.toggle('hide', !klok);
+    $('left').classList.toggle('klokmode', klok);
+    $('main').classList.toggle('klokmode', klok);
+    const w=$('waar'); if(w) w.textContent = klok ? 'klok' : 'strook';
+    strip.classList.toggle('off', !S.strip && !answered);
+    ac.classList.toggle('off', !S.strip && !answered);
+  }
 
   function showItem(){
     answered=false; it=items[q];
-    clearStrip(); $('count').innerHTML=''; $('feedback').innerHTML='';
+    clearStrip(); clearAnalog(); $('count').innerHTML=''; $('feedback').innerHTML='';
     $('next').classList.remove('show');
     const reverse = step.soort==='omgekeerd';
     renderDisplay(pad(it.h), reverse?'--':pad(it.m), !reverse);
     setPin(it.m, !reverse);
+    setHand(it.p, !reverse);
     stripVisibility();
 
     const opts=$('opts'), form=$('openq'), inp=$('inp');
     opts.innerHTML='';
     if(step.soort==='lees'){
-      $('question').innerHTML='Wat zeg je bij deze minuten?<small>Zoek de minuten op de strook. In welk vak zitten ze?</small>';
+      $('question').innerHTML=`Wat zeg je bij deze minuten?<small>Zoek de minuten op de <span id="waar">${S.hulptype==='klok'?'klok':'strook'}</span>. In welk vak zitten ze?</small>`;
       opts.classList.remove('hidden'); form.classList.add('hidden');
       phraseOptions(it.p).forEach(x=>{
         const b=document.createElement('button'); b.className='opt'; b.dataset.k=x; b.textContent=POS[x].t;
@@ -496,7 +624,7 @@
     }
     renderDots();
     ok ? chime() : buzz();
-    if(step.soort==='omgekeerd'){ renderDisplay(pad(it.h), pad(it.m), true); setPin(it.m,true); }
+    if(step.soort==='omgekeerd'){ renderDisplay(pad(it.h), pad(it.m), true); setPin(it.m,true); setHand(it.p,true); }
     stripVisibility();
     const head = ok ? `<b class="yes">${pick(praise)}</b> ` : `<b class="no">Nog niet.</b> `;
     let hint='';
@@ -528,6 +656,8 @@
   // ---------- knoppen ----------
   function applyToggles(){
     $('tStrip').setAttribute('aria-pressed',S.strip);
+    $('hStrook').classList.toggle('on',S.hulptype==='strook');
+    $('hKlok').classList.toggle('on',S.hulptype==='klok');
     $('tUren').setAttribute('aria-pressed',S.uren);
     $('tSound').setAttribute('aria-pressed',S.sound);
     $('tSound').textContent = S.sound ? '🔊 Geluid' : '🔇 Geluid uit';
@@ -539,6 +669,9 @@
   }
   const tog=(id,key)=>$(id).addEventListener('click',()=>{ S[key]=!S[key]; store.set(key,S[key]); applyToggles(); });
   tog('tStrip','strip'); tog('tUren','uren'); tog('tSound','sound');
+  const setType = t => { S.hulptype=t; store.set('hulptype',t); applyToggles(); };
+  $('hStrook').addEventListener('click',()=>setType('strook'));
+  $('hKlok').addEventListener('click',()=>setType('klok'));
   $('tRestart').addEventListener('click',newRound);
   $('next').addEventListener('click',next);
   $('again').addEventListener('click',newRound);
