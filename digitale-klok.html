@@ -10,7 +10,7 @@
     --bg:#FFF6E5; --ink:#2B2A33; --muted:#7A7368; --line:#E8DCC4;
     --blue:#2563EB; --orange:#F59E0B; --orange-ink:#9A3412;
     --green:#16A34A; --green-soft:#DCFCE7; --red:#DC2626; --red-soft:#FEE2E2;
-    --led:#FF4D4D; --led-dim:#5B5670; --led-off:#2D2A3B; --screen:#1C1A27;
+    --led:#FF4D4D; --led-dim:#8A84A3; --led-off:#2D2A3B; --screen:#1C1A27;
     --a-over:#3B82F6;      --a-over-s:#DBEAFE;
     --a-voorhalf:#10B981;  --a-voorhalf-s:#D1FAE5;
     --a-overhalf:#F59E0B;  --a-overhalf-s:#FEF3C7;
@@ -46,7 +46,9 @@
   #strip.off{opacity:0}
   .left.klokmode{flex-direction:row;align-items:center;justify-content:center;gap:10px}
   .left.klokmode #display{flex:.85 1 0;min-width:0}
-  main.klokmode{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px}
+  main.klokmode{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px}
+  main.klokmode .opt{font-size:clamp(19px,2.3vw,30px)}
+  .opt{overflow-wrap:normal;word-break:keep-all}
   @media (max-width:860px){main.klokmode{grid-template-columns:1fr}}
   #aclock{width:100%;max-width:480px;display:block;transition:opacity .35s;flex:1.2 1 0;min-width:0;max-height:66vh}
   #aclock.off{opacity:0}
@@ -557,9 +559,11 @@
   }
   function stripVisibility(){
     const klok=S.hulptype==='klok';
-    strip.classList.toggle('hide', klok); ac.classList.toggle('hide', !klok);
-    $('left').classList.toggle('klokmode', klok);
-    $('main').classList.toggle('klokmode', klok);
+    const verstopt = !S.strip && !answered;
+    strip.classList.toggle('hide', klok);
+    ac.classList.toggle('hide', !klok || verstopt);       // klok echt weg als de hulp uit staat
+    $('left').classList.toggle('klokmode', klok && !verstopt);
+    $('main').classList.toggle('klokmode', klok && !verstopt);
     const w=$('waar'); if(w) w.textContent = klok ? 'klok' : 'strook';
     strip.classList.toggle('off', !S.strip && !answered);
     ac.classList.toggle('off', !S.strip && !answered);
